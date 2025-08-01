@@ -243,6 +243,66 @@ def delete_parameter(parameter_name : str):
             return HTTPException(400 , "something went wrong")
 
 
+@router.get("/get_test_parameters")
+def get_test_parameters(test_num : int):
+    with session.begin() as con:
+        tests_pars = {}
+        i = 0
+        test = con.query(tests).where(tests.test_num == test_num).first()
+        if test:
+            test_par : test_parameter
+            for test_par in test.test_parameter_r:
+                tests_pars[i] = test_par.parameter_r.parameter_name
+                i+=1
+            return tests_pars
+        else:
+            return {"massage" : "test does not exist"}
+
+
+@router.post("/add_parameter_to_test")
+def add_parameter_to_test(test_num : int , parameter_name : str):
+    with session.begin() as con:
+        try:
+            test = con.query(tests).where(tests.test_num == test_num).first()
+            par = con.query(parameters).where(parameters.parameter_name == parameter_name).first()
+            if test:
+                if par:
+                    if_exist = con.query(test_parameter).where(and_(test_parameter.parameter_id == par.parameter_id , test_parameter.test_id == test.test_id))
+                    if not if_exist:
+                        n_test_parameter = test_parameter(test_id=test.test_id ,parameter_id= par.parameter_id)
+                        con.add(n_test_parameter)
+                        return{"massage" : "parameter added to test successfully"}
+                    else:
+                        return {"massage" : "the test already has the parameter"}
+                return {"massage" : "parameter does not exist try adding it first"}
+            else:
+                return{"massage" : "test does not exist try adding it"}
+        except:
+            return HTTPException(400, "something went wrong")
+
+
+@router.post("/delete_parameter_from_test")
+def delete_parameter_from_test(test_num : int , parameter_name : str):
+    with session.begin() as con:
+        try:
+            test = con.query(tests).where(tests.test_num == test_num).first()
+            par = con.query(parameters).where(parameters.parameter_name == parameter_name).first()
+            if test:
+                if par:
+                    if_exist = con.query(test_parameter).where(and_(test_parameter.parameter_id == par.parameter_id , test_parameter.test_id == test.test_id))
+                    if if_exist:
+                        con.delete(if_exist)
+                        return{"massage" : "parameter deleted from test successfully"}
+                    else:
+                        return {"massage" : "the test does not have the parameter"}
+                return {"massage" : "parameter does not exist try adding it first"}
+            else:
+                return{"massage" : "test does not exist try adding it"}
+        except:
+            return HTTPException(400, "something went wrong")
+        
+#no editing for some reasons!
+
 
 @router.get("/get_time_perids")
 def get_time_periods():
@@ -273,8 +333,8 @@ def add_time_periods(year : int, month : int):
             return HTTPException(400,"something went wrong")
 
 
-@router.delete("/delete_time_perids")
-def delete_time_periods(year : int, month : int , new_year :int, new_month:int):
+@router.put("/edit_time_perids")
+def edit_time_periods(year : int, month : int , new_year :int, new_month:int):
     with session.begin() as con:
         try:
             time_period_query = con.query(time_priod).where(and_(time_priod.month == month , time_priod.year == year)).first()
@@ -291,6 +351,19 @@ def delete_time_periods(year : int, month : int , new_year :int, new_month:int):
         except:
             return HTTPException(400,"something went wrong")
 
+@router.delete("/delete_time_perids")
+def delete_time_periods(year : int, month : int):
+    with session.begin() as con:
+        try:
+            time_period_query = con.query(time_priod).where(and_(time_priod.month == month , time_priod.year == year)).first()
+            if time_period_query:
+                con.delete(time_period_query)
+                return{"massage":"time period deleted successfully"}
+            else:
+                return {"maasage" : "time period does not exist"}
+        except:
+            return HTTPException(400,"something went wrong")
+
 
 
 
@@ -299,92 +372,41 @@ def delete_time_periods(year : int, month : int , new_year :int, new_month:int):
     description="get only one test on one specific time period for one or all of the cities",
 )
 def get_specific_test_data(
-    city_name: Optional[str], test_num: int, year: int, month: int
+    city_name: Optional[str], test_num: Optional[int], year: Optional[int], month: Optional[int]
 ):
     with session.begin() as con:
-        final_dict: dict = {}
-        cities_q = con.query(cities).all()
-        test_q = con.query(tests).where(tests.test_num == test_num).first()
-        tp_q = (
-            con.query(time_priod)
-            .where(and_(time_priod.year == year, time_priod.month == month))
-            .first()
-        )
-        if not city_name:
-            i = 0
+        test_result_dict = {}
+        if city_name :
+            ct_q = con.query(cities).where(cities.name == city_name).first()
+            if ct_q:
+                if ct_q.work_orders_r is not None:
+                    wo : work_orders
+                    i = 0
+                    for wo in ct_q.work_orders_r:
+                        if test_num:
+                            test_w : tests
+                            for test_w in wo.test_r:
+                                if test_w.test_num == test_num:
+                                    tp:time_priod
+                                    for tp in wo.period_r:
+                                        if tp.month == month and tp.year == year:
+                                            wos : work_order_stats
+                                            for wos in wo.work_order_stats_r:
+                                                pr : parameters
+                                                for pr in wos.parameter_r:
+                                                    
 
-            for city in cities_q:
-                worder_stats = None
-                worders: List[work_orders] = list(city.work_orders_r)
-                if test_q and tp_q:
-                    for wo in worders:
-                        if (
-                            wo.test_id == test_q.test_id
-                            and wo.period_id == tp_q.period_id
-                        ):
-                            worder_stats = (
-                                con.query(work_order_stats)
-                                .where(
-                                    work_order_stats.work_order_id == wo.work_order_id
-                                )
-                                .all()
-                            )
-                if worder_stats:
-                    ndict: Dict[str, Union[int, str]] = {}
-                    ndict["city_name"] = city.name
-                    ndict["year"] = year
-                    ndict["month"] = month
-                    for worder in worder_stats:
-                        parname = (
-                            con.query(parameters)
-                            .where(parameters.parameter_id == worder.parameter_id)
-                            .first()
-                        )
-                        if parname:
-                            ndict[parname.parameter_name] = worder.count
-                    final_dict[i] = ndict
-                    i += 1
-            df = pd.DataFrame.from_dict(final_dict, orient="index")
-            return df
+
         else:
-            ct = con.query(cities).where(cities.name == city_name).first()
-            if ct:
-                i = 0
-                worder_stats = None
-                w1orders: List[work_orders] = list(ct.work_orders_r)
-                if test_q and tp_q:
-                    for wo in w1orders:
-                        if (
-                            wo.test_id == test_q.test_id
-                            and wo.period_id == tp_q.period_id
-                        ):
-                            worder_stats = (
-                                con.query(work_order_stats)
-                                .where(
-                                    work_order_stats.work_order_id == wo.work_order_id
-                                )
-                                .all()
-                            )
-                if worder_stats:
-                    n1dict: Dict[str, Union[int, str]] = {}
-                    n1dict["city_name"] = ct.name
-                    n1dict["year"] = year
-                    n1dict["month"] = month
-                    for worder in worder_stats:
-                        parname = (
-                            con.query(parameters)
-                            .where(parameters.parameter_id == worder.parameter_id)
-                            .first()
-                        )
-                        if parname:
-                            n1dict[parname.parameter_name] = worder.count
-                    final_dict[i] = n1dict
-                    i += 1
-                df = pd.DataFrame.from_dict(final_dict, orient="index")
-                return df.to_json(orient="table")
+            ct_q = con.query(cities).all()
+
+
+
+
+
 
 #برای انتقال یک یا چند پوشه از یک وضعیت به یک وضعیت دیگر
-@router.post("/move_rec")
+@router.put("/move_rec")
 def move_rec(city_name : str, test_num : int, year : int , month : int , from_par : str , to_par : str , count : int):
     with session.begin() as con:
         ct = con.query(cities).where(cities.name == city_name).first()
