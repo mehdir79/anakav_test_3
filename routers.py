@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query , HTTPException
 import pandas as pd
 from typing import Dict, List, Optional, Union
 from sqlalchemy import create_engine, and_, func
@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-
+@router.get("cities/get_cities")
 def get_cities_df():
     with session.begin() as con:
         cities_query = con.query(cities).all()
@@ -29,9 +29,49 @@ def get_cities_df():
             citiesdict[i] = {"city_name": ct.name, "code_omor": ct.code_omor}
             i += 1
         df = pd.DataFrame.from_dict(citiesdict, orient="index")
-        return df
+        return df.to_json(orient="table")
+    
+@router.post("cities/creat_city")
+def creat_city(name : str , code_omor : int):
+    with session.begin() as con:
+        try:
+            n_city = cities(name=name , code_omor= code_omor)
+            con.add(n_city)
+            return {"massage" : "city added now you can add records for this city"}
+        except:
+            return {"massage" : "something went wrong"}
+    
+@router.delete("cities/delete_city")
+def delete_city(name : str):
+    with session.begin() as con:
+        try:
+            d_city = con.query(cities).where(cities.name == name).first()
+            if d_city:
+                con.delete(d_city)
+                return {"massage" : "deleted successfully"}
+            else:
+                return {"massage" : "city not found"}
+        except:
+            return {"massage" : "something went wrong"}
 
+@router.put("cities/edit_city")
+def edit_city(name : str , code_omor : int , new_name : str , new_code_omor:int):
+    with session.begin() as con:
+        try:
+            the_city = con.query(cities).where(and_(cities.name == name , cities.code_omor == code_omor)).first()
+            if the_city:
+                the_city.name = new_name
+                the_city.code_omor = new_code_omor
+                con.commit()
+                return {"massage" : "city edited successfully"}
+            else:
+                return {"massage" : "city not found"}    
+               
+        except:
+            return {"massage" : "something went wrong"}
+    
 
+@router.get("tests/get_tests")
 def get_tests():
     with session.begin() as con:
         tests_query = con.query(tests).all()
@@ -46,9 +86,9 @@ def get_tests():
             }
             i += 1
         df = pd.DataFrame.from_dict(testsdict, orient="index")
-        return df
+        return df.to_json(orient="table")
 
-
+@router.get("/get_parameters")
 def get_parameters():
     with session.begin() as con:
         parameters_query = con.query(parameters).all()
@@ -61,9 +101,9 @@ def get_parameters():
             }
             i += 1
         df = pd.DataFrame.from_dict(parametersdict, orient="index")
-        return df
+        return df.to_json(orient="table")
 
-
+@router.get("/get_time_perids")
 def get_time_periods():
     with session.begin() as con:
         time_periods_query = con.query(time_priod).all()
@@ -76,7 +116,7 @@ def get_time_periods():
             }
             i += 1
         df = pd.DataFrame.from_dict(time_periodsdict, orient="index")
-        return df
+        return df.to_json(orient="table")
 
 
 @router.get(
@@ -166,7 +206,49 @@ def get_specific_test_data(
                     final_dict[i] = n1dict
                     i += 1
                 df = pd.DataFrame.from_dict(final_dict, orient="index")
-                return df
+                return df.to_json(orient="table")
 
-
-print(get_specific_test_data("شهر 2", 5, 1401, 7))
+#برای انتقال یک یا چند پوشه از یک وضعیت به یک وضعیت دیگر
+@router.post("/move_rec")
+def move_rec(city_name : str, test_num : int, year : int , month : int , from_par : str , to_par : str , count : int):
+    with session.begin() as con:
+        ct = con.query(cities).where(cities.name == city_name).first()
+        tst = con.query(tests).where(tests.test_num == test_num).first()
+        tp = con.query(time_priod).where(and_(time_priod.year == year , time_priod.month == month)).first()
+        if ct:
+            if tst:
+                if tp:
+                    wo = con.query(work_orders).where(and_(work_orders.city_id == ct.city_id , work_orders.test_id == tst.test_id , work_orders.period_id == tp.period_id)).first()
+                    if wo:
+                        wos : work_order_stats
+                        pr : parameters
+                        fr_pr = None
+                        to_pr = None
+                        for wos in wo.work_order_stats_r:
+                            pr : parameters = wos.parameter_r
+                            if pr.parameter_name == from_par:
+                                if wos.count >= count :
+                                    fr_pr = wos
+                                else:
+                                    return HTTPException(404 , "no enough folder to move")
+                            elif pr.parameter_name == to_par:
+                                to_pr = wos
+                        if fr_pr:
+                            if to_pr:
+                                fr_pr.count -= count
+                                to_pr.count +=count
+                                return{"massage" : "transport done"}
+                                con.commit()
+                            else:
+                                return HTTPException(404,"test does not have the to pamater")
+                        else:
+                            return HTTPException(404 , "test does not have the from parameter")
+                    else:
+                        return HTTPException(404 , "there is no workorder for this city,test and time period")
+                else:
+                    return HTTPException(404 , "time period not found")
+            else:
+                return HTTPException(404 , "test not founf")
+        else:
+            return HTTPException(404 , "city not found")
+        
