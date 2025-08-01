@@ -186,7 +186,7 @@ def delete_test(test_name : Optional[str] , test_num : Optional[int]):
     
     
 
-@router.get("/get_parameters")
+@router.get("parameters/get_parameters")
 def get_parameters():
     with session.begin() as con:
         parameters_query = con.query(parameters).all()
@@ -201,7 +201,7 @@ def get_parameters():
         df = pd.DataFrame.from_dict(parametersdict, orient="index")
         return df.to_json(orient="table")
 
-@router.post("/add_parameter")
+@router.post("parameters/add_parameter")
 def add_parameter(parameter_name : str):
     with session.begin() as con:
         try:
@@ -215,7 +215,7 @@ def add_parameter(parameter_name : str):
         except:
             return HTTPException(400 , "something went wrong")
 
-@router.put("/edit_parameter")
+@router.put("parameters/edit_parameter")
 def edit_parameter(parameter_name : str , new_parameter_name : str):
     with session.begin() as con:
         try:
@@ -229,7 +229,7 @@ def edit_parameter(parameter_name : str , new_parameter_name : str):
         except:
             return HTTPException(400 , "something went wrong")
 
-@router.delete("/delete_parameter")
+@router.delete("parameters/delete_parameter")
 def delete_parameter(parameter_name : str):
     with session.begin() as con:
         try:
@@ -243,7 +243,7 @@ def delete_parameter(parameter_name : str):
             return HTTPException(400 , "something went wrong")
 
 
-@router.get("/get_test_parameters")
+@router.get("test_parameters/get_test_parameters")
 def get_test_parameters(test_num : int):
     with session.begin() as con:
         tests_pars = {}
@@ -259,7 +259,7 @@ def get_test_parameters(test_num : int):
             return {"massage" : "test does not exist"}
 
 
-@router.post("/add_parameter_to_test")
+@router.post("test_parameters/add_parameter_to_test")
 def add_parameter_to_test(test_num : int , parameter_name : str):
     with session.begin() as con:
         try:
@@ -281,7 +281,7 @@ def add_parameter_to_test(test_num : int , parameter_name : str):
             return HTTPException(400, "something went wrong")
 
 
-@router.post("/delete_parameter_from_test")
+@router.post("test_parameters/delete_parameter_from_test")
 def delete_parameter_from_test(test_num : int , parameter_name : str):
     with session.begin() as con:
         try:
@@ -304,7 +304,7 @@ def delete_parameter_from_test(test_num : int , parameter_name : str):
 #no editing for some reasons!
 
 
-@router.get("/get_time_perids")
+@router.get("time_perids/get_time_perids")
 def get_time_periods():
     with session.begin() as con:
         time_periods_query = con.query(time_priod).all()
@@ -319,7 +319,7 @@ def get_time_periods():
         df = pd.DataFrame.from_dict(time_periodsdict, orient="index")
         return df.to_json(orient="table")
 
-@router.post("/add_time_perids")
+@router.post("time_perids/add_time_perids")
 def add_time_periods(year : int, month : int):
     with session.begin() as con:
         try:
@@ -333,7 +333,7 @@ def add_time_periods(year : int, month : int):
             return HTTPException(400,"something went wrong")
 
 
-@router.put("/edit_time_perids")
+@router.put("time_perids/edit_time_perids")
 def edit_time_periods(year : int, month : int , new_year :int, new_month:int):
     with session.begin() as con:
         try:
@@ -351,7 +351,7 @@ def edit_time_periods(year : int, month : int , new_year :int, new_month:int):
         except:
             return HTTPException(400,"something went wrong")
 
-@router.delete("/delete_time_perids")
+@router.delete("time_perids/delete_time_perids")
 def delete_time_periods(year : int, month : int):
     with session.begin() as con:
         try:
@@ -364,50 +364,302 @@ def delete_time_periods(year : int, month : int):
         except:
             return HTTPException(400,"something went wrong")
 
+@router.get("workorders/get_workorders")
+def get_workorders(test_num : Optional[int] , city_name : Optional[str] , year: Optional[int] , month : Optional[int]):
+    with session.begin() as con:
+        work_orders_result_dict = {}
+        if test_num and city_name and year and month:
+            city = con.query(cities).where(cities.name == city_name).first()
+            if city:
+                tp_q = con.query(time_priod).where(and_(time_priod.year == year,time_priod.month == month)).first()
+                if tp_q:
+                    test = con.query(tests).where(tests.test_num == test_num).first()
+                    if test:
+                        worders = con.query(work_orders).where(and_(work_orders.city_id == city.city_id , work_orders.test_id == test.test_id , work_orders.period_id == tp_q.period_id) ).all()
+                        if worders:
+                            for wo in worders:
+                                worderdict = {}
+                                worderdict["نام شهر"] = wo.city_r.name
+                                worderdict["شماره تست"] = wo.test_r.test_num
+                                worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
+                            return pd.DataFrame.from_dict(work_orders_result_dict , orient="index")
+        elif city_name and year and month:
+            city = con.query(cities).where(cities.name == city_name).first()
+            if city:
+                tp_q = con.query(time_priod).where(and_(time_priod.year == year,time_priod.month == month)).first()
+                if tp_q:
+                    worders = con.query(work_orders).where(and_(work_orders.city_id == city.city_id ,  work_orders.period_id == tp_q.period_id) ).all()
+                    if worders:
+                        i = 0
+                        for wo in worders:
+                            worderdict = {}
+                            worderdict["نام شهر"] = wo.city_r.name
+                            worderdict["شماره تست"] = wo.test_r.test_num
+                            worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
+                            work_orders_result_dict[i] = worderdict
+                            i+=1
+                        return pd.DataFrame.from_dict(work_orders_result_dict , orient="index")
+                    
+        elif test_num and city_name:
+            city = con.query(cities).where(cities.name == city_name).first()
+            if city:
+                test = con.query(tests).where(tests.test_num == test_num).first()
+                if test:
+                    worders = con.query(work_orders).where(and_(work_orders.city_id == city.city_id , work_orders.test_id == test.test_id ) ).all()
+                    if worders:
+                        i = 0
+                        for wo in worders:
+                            worderdict = {}
+                            worderdict["نام شهر"] = wo.city_r.name
+                            worderdict["شماره تست"] = wo.test_r.test_num
+                            worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
+                            work_orders_result_dict[i] = worderdict
+                            i+=1
+                        return pd.DataFrame.from_dict(work_orders_result_dict , orient="index")
+        elif test_num and year and month:
+            test = con.query(tests).where(tests.test_num == test_num).first()
+            if test:
+                tp_q = con.query(time_priod).where(and_(time_priod.year == year,time_priod.month == month)).first()
+                if tp_q:
+                    worders = con.query(work_orders).where(and_( work_orders.test_id == test.test_id , work_orders.period_id == tp_q.period_id) ).all()
+                    if worders:
+                        i = 0
+                        for wo in worders:
+                            worderdict = {}
+                            worderdict["نام شهر"] = wo.city_r.name
+                            worderdict["شماره تست"] = wo.test_r.test_num
+                            worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
+                            work_orders_result_dict[i] = worderdict
+                            i+=1
+                        return pd.DataFrame.from_dict(work_orders_result_dict , orient="index")
+        elif year and month:
+            tp_q = con.query(time_priod).where(and_(time_priod.year == year,time_priod.month == month)).first()
+            if tp_q:
+                worders = con.query(work_orders).where( work_orders.period_id == tp_q.period_id).all()
+                if worders:
+                    i = 0
+                    for wo in worders:
+                        worderdict = {}
+                        worderdict["نام شهر"] = wo.city_r.name
+                        worderdict["شماره تست"] = wo.test_r.test_num
+                        worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
+                        work_orders_result_dict[i] = worderdict
+                        i+=1
+                    return pd.DataFrame.from_dict(work_orders_result_dict , orient="index")
+        elif city_name:
+            city = con.query(cities).where(cities.name == city_name).first()
+            if city:
+                worders = con.query(work_orders).where(work_orders.city_id == city.city_id).all()
+                if worders:
+                    i = 0
+                    for wo in worders:
+                        worderdict = {}
+                        worderdict["نام شهر"] = wo.city_r.name
+                        worderdict["شماره تست"] = wo.test_r.test_num
+                        worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
+                        work_orders_result_dict[i] = worderdict
+                        i+=1
+                    return pd.DataFrame.from_dict(work_orders_result_dict , orient="index")
+        elif test_num:
+            test = con.query(tests).where(tests.test_num == test_num).first()
+            if test:
+                worders = con.query(work_orders).where(work_orders.test_id == test.test_id).all()
+                print(len(worders))
+                if worders:
+                    i = 0
+                    for wo in worders:
+                        worderdict = {}
+                        worderdict["نام شهر"] = wo.city_r.name
+                        worderdict["شماره تست"] = wo.test_r.test_num
+                        worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
+                        work_orders_result_dict[i] = worderdict
+                        i+=1
+                    return pd.DataFrame.from_dict(work_orders_result_dict , orient="index")
+        elif year:
+            tp_q1 = con.query(time_priod).where(time_priod.year == year).all()
+            if tp_q1:
+                i = 0
+                for tp_q in tp_q1:
+                    worders = con.query(work_orders).where( work_orders.period_id == tp_q.period_id).all()
+                    if worders:
+                        for wo in worders:
+                            worderdict = {}
+                            worderdict["نام شهر"] = wo.city_r.name
+                            worderdict["شماره تست"] = wo.test_r.test_num
+                            worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
+                            work_orders_result_dict[i] = worderdict
+                            i+=1
+                return pd.DataFrame.from_dict(work_orders_result_dict , orient="index")
+
+                
+
+print(get_workorders(test_num=None , city_name=None , year= 1401, month=None))
 
 
-
-@router.get(
-    "/get_tests",
-    description="get only one test on one specific time period for one or all of the cities",
-)
+@router.get("workorders_stats/get_workorders_stats")
 def get_specific_test_data(
     city_name: Optional[str], test_num: Optional[int], year: Optional[int], month: Optional[int]
 ):
     with session.begin() as con:
         test_result_dict = {}
-        if city_name :
+        if city_name and test_num and year and month:
             ct_q = con.query(cities).where(cities.name == city_name).first()
             if ct_q:
                 if ct_q.work_orders_r is not None:
                     wo : work_orders
                     i = 0
-                    for wo in ct_q.work_orders_r:
-                        if test_num:
-                            test_w : tests
-                            for test_w in wo.test_r:
-                                if test_w.test_num == test_num:
-                                    tp:time_priod
-                                    for tp in wo.period_r:
-                                        if tp.month == month and tp.year == year:
-                                            wos : work_order_stats
-                                            for wos in wo.work_order_stats_r:
-                                                pr : parameters
-                                                for pr in wos.parameter_r:
-                                                    
-
-
-        else:
+                    worderdict = {}
+                    for wo in ct_q.work_orders_r: 
+                        if wo.test_r.test_num == test_num:
+                            if wo.period_r.year == year and wo.period_r.month == month:
+                                worderdict = {"نام شهر": ct_q.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
+                                wos : work_order_stats
+                                for wos in wo.work_order_stats_r:
+                                    worderdict[wos.parameter_r.parameter_name] = wos.count
+                                i+=1
+                    test_result_dict[i] = worderdict
+                    return pd.DataFrame.from_dict(test_result_dict ,orient="index" )
+        elif test_num and year and month:
             ct_q = con.query(cities).all()
+            i = 0
+            worderdict = {}
+            for ct in ct_q:
+                if ct.work_orders_r is not None:
+                    wo : work_orders
+                    for wo in ct.work_orders_r: 
+                        if wo.test_r.test_num == test_num:
+                            if wo.period_r.year == year and wo.period_r.month == month:
+                                worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
+                                wos : work_order_stats
+                                for wos in wo.work_order_stats_r:
+                                    worderdict[wos.parameter_r.parameter_name] = wos.count
+                                i+=1
+                test_result_dict[i] = worderdict
+            return pd.DataFrame.from_dict(test_result_dict ,orient="index" )
+        elif year and month:
+            ct_q = con.query(cities).all()
+            i = 0
+            worderdict = {}
+            for ct in ct_q:
+                if ct.work_orders_r is not None:
+                    wo : work_orders
+                    for wo in ct.work_orders_r: 
+                        if wo.period_r.year == year and wo.period_r.month == month:
+                            worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
+                            wos : work_order_stats
+                            for wos in wo.work_order_stats_r:
+                                worderdict[wos.parameter_r.parameter_name] = wos.count
+                            i+=1
+                        test_result_dict[i] = worderdict
+            return pd.DataFrame.from_dict(test_result_dict ,orient="index")
+        elif year:
+            ct_q = con.query(cities).all()
+            i = 0
+            worderdict = {}
+            for ct in ct_q:
+                if ct.work_orders_r is not None:
+                    wo : work_orders
+                    for wo in ct.work_orders_r: 
+                        if wo.period_r.year == year:
+                            worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
+                            wos : work_order_stats
+                            for wos in wo.work_order_stats_r:
+                                worderdict[wos.parameter_r.parameter_name] = wos.count
+                            i+=1
+                        test_result_dict[i] = worderdict
+            return pd.DataFrame.from_dict(test_result_dict ,orient="index")
+        elif test_num:
+            ct_q = con.query(cities).all()
+            i = 0
+            worderdict = {}
+            for ct in ct_q:
+                if ct.work_orders_r is not None:
+                    wo : work_orders
+                    for wo in ct.work_orders_r: 
+                        majmo = 0
+                        if wo.test_r.test_num == test_num:
+                            worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
+                            wos : work_order_stats
+                            for wos in wo.work_order_stats_r:
+                                worderdict[wos.parameter_r.parameter_name] = wos.count
+                                if wos.count is not np.NaN:
+                                    majmo+=wos.count
+                            i+=1
+                            worderdict[wo.test_r.majmo_name] = majmo
+                        test_result_dict[i] = worderdict
+                    
+            return pd.DataFrame.from_dict(test_result_dict ,orient="index" )
+        elif month:
+            ct_q = con.query(cities).all()
+            i = 0
+            worderdict = {}
+            for ct in ct_q:
+                if ct.work_orders_r is not None:
+                    wo : work_orders
+                    for wo in ct.work_orders_r: 
+                        if wo.period_r.month == month:
+                            worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
+                            wos : work_order_stats
+                            for wos in wo.work_order_stats_r:
+                                worderdict[wos.parameter_r.parameter_name] = wos.count
+                            i+=1
+                        test_result_dict[i] = worderdict
+            return pd.DataFrame.from_dict(test_result_dict ,orient="index")
 
 
+@router.post("folders/add_folder")
+def add_folder(city_name : str, test_num : int, year : int , month : int , par :str,  count : int):
+    with session.begin() as con:
+        ct = con.query(cities).where(cities.name == city_name).first()
+        tst = con.query(tests).where(tests.test_num == test_num).first()
+        tp = con.query(time_priod).where(and_(time_priod.year == year , time_priod.month == month)).first()
+        if ct and tst and tp:
+            wo = con.query(work_orders).where(and_(work_orders.city_id == ct.city_id , work_orders.test_id == tst.test_id , work_orders.period_id == tp.period_id)).first()
+            if wo:
+                parameter = con.query(parameters).where(parameters.parameter_name == par).first()
+                if parameter:
+                    n_worder_stat = work_order_stats(work_order_id=wo.work_order_id , parameter_id=parameter.parameter_id , count=count)
+                    con.add(n_worder_stat)
+                    return{"massage" : "folder/folders added successfully"}
+                else:
+                    return{"massage" : "parameter not found try adding it"}
+            return{"massage" : "work order not found try adding it"}
+        return{"massage" : "city not found try adding it"}
 
 
+@router.delete("folders/delete_folder")
+def delete_folder(city_name : str, test_num : int, year : int , month : int , par :str,  count : int):
+    with session.begin() as con:
+        ct = con.query(cities).where(cities.name == city_name).first()
+        tst = con.query(tests).where(tests.test_num == test_num).first()
+        tp = con.query(time_priod).where(and_(time_priod.year == year , time_priod.month == month)).first()
+        if ct and tst and tp:
+            wo = con.query(work_orders).where(and_(work_orders.city_id == ct.city_id , work_orders.test_id == tst.test_id , work_orders.period_id == tp.period_id)).first()
+            if wo:
+                parameter = con.query(parameters).where(parameters.parameter_name == par).first()
+                if parameter:
+                    wos = con.query(work_order_stats).where(and_(work_order_stats.parameter_id == parameter.parameter_id , work_order_stats.work_order_id == wo.work_order_id)).first()
+                    if wos:
+                        if wos.count >= count:
+                            wos.count -= count
+                            con.commit()
+                            return{"massage" , "folder/folders deleted successfully"}
+                        else:
+                            return{"massage" : f"no enouph folder/folders left to delete try less or equal to {wos.count}"}
+                    else:
+                        return{"massage" : "work order stat not found"}
+                else:
+                    return{"massage" : "parameter not found try adding it"}
+            return{"massage" : "work order not found try adding it"}
+        return{"massage" : "city not found try adding it"}
 
 
-#برای انتقال یک یا چند پوشه از یک وضعیت به یک وضعیت دیگر
-@router.put("/move_rec")
-def move_rec(city_name : str, test_num : int, year : int , month : int , from_par : str , to_par : str , count : int):
+            
+
+
+#برای انتقال یک یا چند پرونده از یک وضعیت به یک وضعیت دیگر
+@router.put("folders/move_folder")
+def move_folder(city_name : str, test_num : int, year : int , month : int , from_par : str , to_par : str , count : int):
     with session.begin() as con:
         ct = con.query(cities).where(cities.name == city_name).first()
         tst = con.query(tests).where(tests.test_num == test_num).first()
