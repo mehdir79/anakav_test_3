@@ -80,9 +80,9 @@ class parameters(Base):
 class test_parameter(Base):
     __tablename__ = "test_parameter"
 
-    test_id: Mapped[int] = mapped_column(ForeignKey("tests.test_id"), primary_key=True)
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.test_id", ondelete="CASCADE"), primary_key=True)
     parameter_id: Mapped[int] = mapped_column(
-        ForeignKey("parameters.parameter_id"), primary_key=True
+        ForeignKey("parameters.parameter_id", ondelete="CASCADE"), primary_key=True
     )
 
     def __init__(self, test_id: int, parameter_id: int):
@@ -122,9 +122,9 @@ class work_orders(Base):
     work_order_id: Mapped[int] = mapped_column(
         autoincrement=True, primary_key=True, unique=True
     )
-    test_id: Mapped[int] = mapped_column(ForeignKey("tests.test_id"))
-    city_id: Mapped[int] = mapped_column(ForeignKey("cities.city_id"))
-    period_id: Mapped[int] = mapped_column(ForeignKey("time_period.period_id"))
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.test_id", ondelete="CASCADE"))
+    city_id: Mapped[int] = mapped_column(ForeignKey("cities.city_id", ondelete="CASCADE"))
+    period_id: Mapped[int] = mapped_column(ForeignKey("time_period.period_id", ondelete="CASCADE"))
 
     def __init__(self, test_id: int, city_id: int, period_id: int):
         self.test_id = test_id
@@ -147,10 +147,10 @@ class work_order_stats(Base):
     __tablename__ = "work_order_stats"
 
     work_order_id: Mapped[int] = mapped_column(
-        ForeignKey("work_orders.work_order_id"), primary_key=True
+        ForeignKey("work_orders.work_order_id", ondelete="CASCADE"), primary_key=True
     )
     parameter_id: Mapped[int] = mapped_column(
-        ForeignKey("parameters.parameter_id"), primary_key=True
+        ForeignKey("parameters.parameter_id", ondelete="CASCADE"), primary_key=True
     )
     count: Mapped[int] = mapped_column(default=0, nullable=False)
 
