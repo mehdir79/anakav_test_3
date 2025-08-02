@@ -1,14 +1,9 @@
-from typing import Any, Optional, Dict
 from sqlalchemy import (
     String,
     ForeignKey,
     event,
-    select,
-    func,
     create_engine,
     UniqueConstraint,
-    JSON,
-    null,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -19,12 +14,18 @@ from sqlalchemy.orm import (
 )
 
 
+engine = create_engine("sqlite:///database.db")
+session = sessionmaker(bind=engine)
+
+@event.listens_for(engine, "connect")
+def enable_foreign_keys(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 class Base(DeclarativeBase):
     pass
 
-
-engine = create_engine("sqlite:///database.db")
-session = sessionmaker(bind=engine)
 
 
 class cities(Base):
@@ -40,7 +41,7 @@ class cities(Base):
         self.name = name
         self.code_omor = code_omor
 
-    work_orders_r = relationship("work_orders", back_populates="city_r")
+    work_orders_r = relationship("work_orders", back_populates="city_r"  , cascade="all, delete", passive_deletes=True)
 
 
 class tests(Base):
@@ -58,8 +59,8 @@ class tests(Base):
         self.test_num = test_num
         self.majmo_name = majmo_name
 
-    test_parameter_r = relationship("test_parameter", back_populates="test_r")
-    work_orders_r = relationship("work_orders", back_populates="test_r")
+    test_parameter_r = relationship("test_parameter", back_populates="test_r", cascade="all, delete", passive_deletes=True )
+    work_orders_r = relationship("work_orders", back_populates="test_r", cascade="all, delete", passive_deletes=True )
 
 
 class parameters(Base):
@@ -73,8 +74,8 @@ class parameters(Base):
     def __init__(self, parameter_name):
         self.parameter_name = parameter_name
 
-    test_parameter_r = relationship("test_parameter", back_populates="parameter_r")
-    work_order_stats_r = relationship("work_order_stats", back_populates="parameter_r")
+    test_parameter_r = relationship("test_parameter", back_populates="parameter_r" ,  cascade="all, delete", passive_deletes=True)
+    work_order_stats_r = relationship("work_order_stats", back_populates="parameter_r" , cascade="all, delete", passive_deletes=True)
 
 
 class test_parameter(Base):
@@ -96,7 +97,7 @@ class test_parameter(Base):
     )
 
     test_r = relationship("tests", back_populates="test_parameter_r")
-    parameter_r = relationship("parameters", back_populates="test_parameter_r")
+    parameter_r = relationship("parameters", back_populates="test_parameter_r" , cascade="all, delete", passive_deletes=True)
 
 
 class time_priod(Base):
@@ -113,7 +114,7 @@ class time_priod(Base):
         self.month = month
 
     __table_args__ = (UniqueConstraint("year", "month", name="uq_year_month"),)
-    work_orders_r = relationship("work_orders", back_populates="period_r")
+    work_orders_r = relationship("work_orders", back_populates="period_r",cascade="all, delete", passive_deletes=True)
 
 
 class work_orders(Base):
@@ -134,7 +135,7 @@ class work_orders(Base):
     test_r = relationship("tests", back_populates="work_orders_r")
     city_r = relationship("cities", back_populates="work_orders_r")
     period_r = relationship("time_priod", back_populates="work_orders_r")
-    work_order_stats_r = relationship("work_order_stats", back_populates="work_order_r")
+    work_order_stats_r = relationship("work_order_stats", back_populates="work_order_r" ,  cascade="all, delete", passive_deletes=True)
 
     __table_args__ = (
         UniqueConstraint(

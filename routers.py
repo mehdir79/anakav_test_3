@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Query , HTTPException
+from fastapi import APIRouter, HTTPException
 import pandas as pd
-from typing import Dict, List, Optional, Union
-from sqlalchemy import create_engine, and_, func
-from sqlalchemy.orm import sessionmaker
+from typing import Optional
+from sqlalchemy import and_
 from first_models import (
     session,
     cities,
@@ -13,9 +12,7 @@ from first_models import (
     work_order_stats,
     work_orders,
 )
-import traceback
 import numpy as np
-from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -383,6 +380,15 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                                 worderdict["شماره تست"] = wo.test_r.test_num
                                 worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
                             return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
+                        else:
+                            return {"massage" : "no work order for this city in this time period and test"}
+                    else:
+                        return{"test does not exist"}
+                else:
+                    return{"massage" : "time period does not exist"}
+            else:
+                return{"massage" : "city does not exist"}
+                    
         elif city_name and year and month:
             city = con.query(cities).where(cities.name == city_name).first()
             if city:
@@ -399,7 +405,14 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                             work_orders_result_dict[i] = worderdict
                             i+=1
                         return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
-                    
+                    else:
+                        return {"massage" : "no work order for this city in this time period and test"}
+                else:
+                    return{"massage" : "time period does not exist"}
+            else:
+                return{"massage" : "city does not exist"}
+
+            
         elif test_num and city_name:
             city = con.query(cities).where(cities.name == city_name).first()
             if city:
@@ -416,6 +429,15 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                             work_orders_result_dict[i] = worderdict
                             i+=1
                         return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
+                    else:
+                        return {"massage" : "no work order for this city in this time period and test"}
+                else:
+                    return{"test does not exist"}
+            else:
+                return{"massage" : "city does not exist"}
+
+
+
         elif test_num and year and month:
             test = con.query(tests).where(tests.test_num == test_num).first()
             if test:
@@ -432,6 +454,14 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                             work_orders_result_dict[i] = worderdict
                             i+=1
                         return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
+                    else:
+                        return {"massage" : "no work order for this city in this time period and test"}
+                else:
+                    return{"massage" : "time period does not exist"}
+            else:
+                return{"test does not exist"}
+
+
         elif year and month:
             tp_q = con.query(time_priod).where(and_(time_priod.year == year,time_priod.month == month)).first()
             if tp_q:
@@ -446,6 +476,12 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                         work_orders_result_dict[i] = worderdict
                         i+=1
                     return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
+                else:
+                    return {"massage" : "no work order for this city in this time period and test"}
+            else:
+                return{"massage" : "time period does not exist"}
+            
+
         elif city_name:
             city = con.query(cities).where(cities.name == city_name).first()
             if city:
@@ -460,6 +496,12 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                         work_orders_result_dict[i] = worderdict
                         i+=1
                     return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
+                else:
+                    return {"massage" : "no work order for this city in this time period and test"}
+            else:
+                return{"massage" : "city does not exist"}
+            
+
         elif test_num:
             test = con.query(tests).where(tests.test_num == test_num).first()
             if test:
@@ -475,6 +517,10 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                         work_orders_result_dict[i] = worderdict
                         i+=1
                     return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
+                else:
+                    return {"massage" : "no work order for this city in this time period and test"}
+            else:
+                return{"test does not exist"}
         elif year:
             tp_q1 = con.query(time_priod).where(time_priod.year == year).all()
             if tp_q1:
@@ -489,7 +535,11 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                             worderdict["سال و ماه"] = {"سال":wo.period_r.year , "ماه":wo.period_r.month}
                             work_orders_result_dict[i] = worderdict
                             i+=1
+                    else:
+                        continue
                 return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
+            else:
+                return{"time period does not exist"}
         elif not year and not month and not city_name and not test_num:
             worders = con.query(work_orders).all()
             if worders:
@@ -502,6 +552,8 @@ def get_workorders(test_num : Optional[int] = None , city_name : Optional[str] =
                     work_orders_result_dict[i] = worderdict
                     i+=1
                 return pd.DataFrame.from_dict(work_orders_result_dict , orient="index").to_dict(orient="records")
+            else:
+                return {"massage" : "no work order for this city in this time period and test"}
 
 
                 
@@ -610,7 +662,6 @@ def get_specific_test_data(
                                     wos : work_order_stats
                                     if len(wo.work_order_stats_r) != 0:
                                         worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
-                                        
                                         for wos in wo.work_order_stats_r:
                                             worderdict[wos.parameter_r.parameter_name] = wos.count
                                             majmo +=wos.count
@@ -628,7 +679,7 @@ def get_specific_test_data(
                 elif i == 0 :
                     return {"masssage" : "there is no stats for this work order"}
                 else:
-                    return pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records")
+                    return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
             else:
                 return{"massage" : "no city"}
             
@@ -652,7 +703,6 @@ def get_specific_test_data(
                             if len(wo.work_order_stats_r) != 0:
                                 worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
                                 for wos in wo.work_order_stats_r:
-                                
                                     worderdict[wos.parameter_r.parameter_name] = wos.count
                                     majmo += wos.count
                                 worderdict[wo.test_r.majmo_name] = majmo
@@ -667,7 +717,7 @@ def get_specific_test_data(
                 elif i == 0 :
                     return {"masssage" : "there is no stats for this work order"}
                 else:
-                    return pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records")
+                    return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
             else:
                 return {"massage": "no such city exists"}
         elif city_name and year and month:
@@ -696,7 +746,7 @@ def get_specific_test_data(
                         if i == 0 :
                             return {"masssage" : "there is no stats for this work order"}
                         else:
-                            return pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records")
+                            return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
                     else:
                         continue
                 if c == 0:
@@ -725,7 +775,7 @@ def get_specific_test_data(
                     if i == 0 :
                         return {"masssage" : "there is no stats for this work order"}
                     else:
-                        return pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records")
+                        return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
                 else:
                     return{"massager" : "this city has no work order"}
             else:
@@ -761,7 +811,7 @@ def get_specific_test_data(
                 elif i == 0 :
                     return {"masssage" : "there is no stats for this work order"}
                 else:
-                    return pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records")
+                    return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
             else:
                 return{"massage" : "there is no city"}
         elif year:
@@ -794,7 +844,7 @@ def get_specific_test_data(
                 elif i == 0 :
                     return {"masssage" : "there is no stats for this work order"}
                 else:
-                    return pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records")
+                    return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
             else:
                 return{"massage" : "there is no city"}
 
@@ -812,9 +862,9 @@ def get_specific_test_data(
                         for wo in ct.work_orders_r: 
                             majmo = 0
                             if wo.test_r.test_num == test_num:
-                                worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
                                 wos : work_order_stats
                                 if len(wo.work_order_stats_r) != 0:
+                                    worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
                                     for wos in wo.work_order_stats_r:
                                         worderdict[wos.parameter_r.parameter_name] = wos.count
                                         majmo += wos.count
@@ -832,7 +882,7 @@ def get_specific_test_data(
                 elif i == 0 :
                     return {"masssage" : "there is no stats for this work order"}
                 else:
-                    return pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records")
+                    return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
             else:
                 return {"massage" : "there is no city"}
         elif month:
@@ -847,9 +897,9 @@ def get_specific_test_data(
                         wo : work_orders
                         for wo in ct.work_orders_r: 
                             if wo.period_r.month == month:
-                                worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
                                 wos : work_order_stats
                                 if len(wo.work_order_stats_r) != 0:
+                                    worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
                                     for wos in wo.work_order_stats_r:
                                         worderdict[wos.parameter_r.parameter_name] = wos.count
                                     test_result_dict[i] = worderdict
@@ -865,7 +915,38 @@ def get_specific_test_data(
                 elif i == 0 :
                     return {"masssage" : "there is no stats for this work order"}
                 else:
-                    return pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records")
+                    return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
+            else:
+                return{"massage":"there is no city"}
+            
+        else:
+            ct_q = con.query(cities).all()
+            i = 0
+            c = 0
+            worderdict = {}
+            if ct_q:
+                for ct in ct_q:
+                    if len(ct.work_orders_r) != 0:
+                        c+=1
+                        wo : work_orders
+                        for wo in ct.work_orders_r: 
+                            worderdict = {"نام شهر": ct.name, "شماره تست":wo.test_r.test_num , "سال" : wo.period_r.year , "ماه" : wo.period_r.month }
+                            wos : work_order_stats
+                            if len(wo.work_order_stats_r) != 0:
+                                for wos in wo.work_order_stats_r:
+                                    worderdict[wos.parameter_r.parameter_name] = wos.count
+                                test_result_dict[i] = worderdict
+                                i+=1
+                            else:
+                                continue
+                    else:
+                        continue
+                if c==0:
+                    return{"massage" : "cities have no work order"}
+                elif i == 0 :
+                    return {"masssage" : "there is no stats for this work order"}
+                else:
+                    return clean_nans(pd.DataFrame.from_dict(test_result_dict , orient="index").to_dict(orient="records"))
             else:
                 return{"massage":"there is no city"}
 
@@ -902,7 +983,7 @@ def delete_work_order_stat(city_name : str, test_num : int, year : int , month :
         if ct and tst and tp and pr:
             wo = con.query(work_orders).where(and_(work_orders.city_id == ct.city_id , work_orders.period_id == tp.period_id , work_orders.test_id == tst.test_id)).first()
             if wo:
-                wos = con.query(work_order_stats).where(work_order_stats.work_order_id == wo.work_order_id , work_order_stats.parameter_id == pr.parameter_id)
+                wos = con.query(work_order_stats).where(work_order_stats.work_order_id == wo.work_order_id , work_order_stats.parameter_id == pr.parameter_id).first()
                 if wos:
                     con.delete(wos)
                     return{"massage" : "work order stat successfully deleted"}
